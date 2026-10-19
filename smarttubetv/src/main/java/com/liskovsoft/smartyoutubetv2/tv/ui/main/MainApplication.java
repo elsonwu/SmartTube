@@ -34,6 +34,8 @@ import com.liskovsoft.smartyoutubetv2.tv.ui.playback.PlaybackActivity;
 import com.liskovsoft.smartyoutubetv2.tv.ui.search.tags.SearchTagsActivity;
 import com.liskovsoft.smartyoutubetv2.tv.ui.signin.SignInActivity;
 import com.liskovsoft.smartyoutubetv2.tv.ui.webbrowser.WebBrowserActivity;
+import com.liskovsoft.smartyoutubetv2.tv.parental.ParentalLimitActivity;
+import com.liskovsoft.smartyoutubetv2.common.parental.ParentalLimitController;
 
 import org.conscrypt.Conscrypt;
 
@@ -85,6 +87,11 @@ public class MainApplication extends MultiDexApplication implements Configuratio
 
         setupGlobalExceptionHandler();
         setupViewManager();
+        // Initialize the parental time-limit controller before any Activity starts
+        // so it can register its ActivityLifecycleCallbacks and gate relaunches
+        // while the configured rest period is still active.
+        ParentalLimitController.setLockActivityClass(ParentalLimitActivity.class);
+        ParentalLimitController.init(this);
     }
 
     /**

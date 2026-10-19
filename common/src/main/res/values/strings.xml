@@ -756,4 +756,45 @@
         <item quantity="one">%s second</item>
         <item quantity="other">%s seconds</item>
     </plurals>
+
+    <!-- Parental time-limit feature -->
+    <string name="parental_limit_settings_title">Parental time limit</string>
+    <string name="parental_limit_settings_desc">Set how long SmartTube can be used each session, with a PIN-protected rest period</string>
+    <string name="parental_limit_enable">Enable time limit</string>
+    <string name="parental_limit_enable_desc">Once enabled, the app locks for a rest period after the configured amount of use</string>
+    <string name="parental_limit_view_limit">Watching time per session</string>
+    <string name="parental_limit_rest_length">Mandatory rest after limit</string>
+    <string name="parental_limit_change_pin">Change PIN</string>
+    <string name="parental_limit_set_pin">Set a parent PIN</string>
+    <string name="parental_limit_set_pin_first_time">First, set a parent PIN</string>
+    <string name="parental_limit_enter_pin">Enter parent PIN</string>
+    <string name="parental_limit_enter_current_pin">Enter current parent PIN</string>
+    <string name="parental_limit_enter_new_pin">Enter new parent PIN</string>
+    <string name="parental_limit_pin_too_short">PIN must be at least 4 characters</string>
+    <string name="parental_limit_pin_changed">PIN updated</string>
+    <string name="parental_limit_wrong_pin">Incorrect PIN</string>
+    <string name="parental_limit_no_pin">No PIN configured — returning home</string>
+    <string name="parental_limit_confirm_to_enable">Enter PIN to enable time limit</string>
+    <string name="parental_limit_confirm_to_disable">Enter PIN to disable time limit</string>
+    <string name="parental_limit_confirm_change_limit">Enter PIN to change watching time</string>
+    <string name="parental_limit_confirm_change_rest">Enter PIN to change rest length</string>
+    <string name="parental_limit_confirm_reset_timer">Enter PIN to reset the timer</string>
+    <string name="parental_limit_confirm_reset_all">Enter PIN to clear all settings</string>
+    <string name="parental_limit_enabled_msg">Time limit enabled</string>
+    <string name="parental_limit_disabled_msg">Time limit disabled</string>
+    <string name="parental_limit_reset">Reset</string>
+    <string name="parental_limit_reset_timer_only">Reset timer only</string>
+    <string name="parental_limit_reset_all">Reset everything (including PIN)</string>
+    <string name="parental_limit_reset_all_desc">Clears all limits, the PIN, and any active rest period</string>
+    <string name="parental_limit_reset_done">Parental limit reset</string>
+    <string name="parental_limit_title">Time\'s up for now</string>
+    <string name="parental_limit_rest_message">SmartTube is resting. Please come back later.</string>
+    <string name="parental_limit_quota_message">Watching time limit reached</string>
+    <string name="parental_limit_parent_options">Parent options</string>
+    <string name="parental_limit_action_extend_10">Extend session by 10 minutes</string>
+    <string name="parental_limit_action_extend_30">Extend session by 30 minutes</string>
+    <string name="parental_limit_action_skip_rest">Skip current rest</string>
+    <string name="parental_limit_action_reset_timer">Reset timer</string>
+    <string name="parental_limit_action_disable_feature">Disable time limit (PIN required)</string>
+    <string name="parental_limit_action_cancel">Cancel</string>
 </resources>
