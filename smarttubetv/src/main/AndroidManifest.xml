@@ -216,6 +216,20 @@
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation|layoutDirection"
             android:screenOrientation="unspecified"/>
 
+        <!-- Parental time-limit lock screen. Launched by ParentalLimitController
+             when the cumulative foreground quota is exhausted. Not exported,
+             excludeFromRecents so it cannot be reopened from recents UI, and
+             singleTop so the controller's lock guard is honoured across re-launches. -->
+        <activity
+            android:name="com.liskovsoft.smartyoutubetv2.tv.parental.ParentalLimitActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:launchMode="singleTop"
+            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation|layoutDirection"
+            android:screenOrientation="landscape"
+            android:theme="@style/App.Theme.Leanback.Preferences.Opaque"/>
+
         <!-- BEGIN Launchers (used inside tvQuickActions. Don't rename them or move!) -->
 
         <activity

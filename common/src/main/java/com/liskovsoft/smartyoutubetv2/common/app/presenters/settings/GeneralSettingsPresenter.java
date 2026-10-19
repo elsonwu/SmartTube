@@ -600,6 +600,13 @@ public class GeneralSettingsPresenter extends BasePresenter<Void> {
                 },
                 mGeneralData.isChildModeEnabled()));
 
+        // Parental time-limit entry. The sub-presenter handles its own PIN flow,
+        // so we just delegate to it.
+        options.add(UiOptionItem.from(getContext().getString(R.string.parental_limit_settings_title),
+                getContext().getString(R.string.parental_limit_settings_desc),
+                optionItem -> ParentalLimitSettingsPresenter.instance(getContext()).show(),
+                false));
+
         // Disable long press on buggy controllers.
         options.add(UiOptionItem.from(getContext().getString(R.string.disable_ok_long_press),
                 getContext().getString(R.string.disable_ok_long_press_desc),
