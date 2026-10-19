@@ -164,7 +164,9 @@ android {
             targetSdkVersion project.properties.compileSdkVersion
         }
         ststable {
-            applicationId "org.smarttube.stable"
+            // Parental-limit fork: renamed to org.smalltube.stable so this APK
+            // can be installed alongside the upstream SmartTube stable build.
+            applicationId "org.smalltube.stable"
             targetSdkVersion project.properties.compileSdkVersion
         }
         stfdroid {
