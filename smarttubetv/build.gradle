@@ -99,6 +99,17 @@ android {
         }
     }
     
+    // Optional: drop the 32MB j2v8 JS engine (used only by the built-in web
+    // browser). Cuts ~40MB off the installed footprint. Enable with:
+    //   ./gradlew ... -PexcludeJ2v8=true
+    if (project.hasProperty('excludeJ2v8') && project.property('excludeJ2v8') == 'true') {
+        packagingOptions {
+            jniLibs {
+                exclude '**/libj2v8.so'
+            }
+        }
+    }
+
     buildTypes {
         release {
             // Enable minification
@@ -123,14 +134,18 @@ android {
     // https://stackoverflow.com/questions/18332474/how-to-set-versionname-in-apk-filename-using-gradle
     applicationVariants.all { variant ->
         variant.outputs.all { output ->
-            def project = "SmartTube"
+            // Parental-limit fork: use SmallTube in the APK filename so the
+            // generated artifact is visibly distinct from upstream SmartTube
+            // builds (the user can tell at a glance which one they're
+            // copying to a USB stick).
+            def project = "SmallTube"
             def flavor = variant.productFlavors[-1].name.substring(2) // remove st prefix
             def buildType = variant.buildType.name.take(1)
             def version = variant.versionName
             def arch = output.getFilter(com.android.build.OutputFile.ABI)
             arch = arch != null ? arch : "universal"
 
-            def newApkName = sprintf("%s_%s_%s_%s.apk", [project, flavor, version, arch])
+            def newApkName = sprintf("%s_parental-limit_%s_%s_%s.apk", [project, flavor, version, arch])
 
             // gradle 4.6 migration
             output.outputFileName = new File(newApkName)
@@ -168,6 +183,11 @@ android {
             // can be installed alongside the upstream SmartTube stable build.
             applicationId "org.smalltube.stable"
             targetSdkVersion project.properties.compileSdkVersion
+            // Ship every ABI so the APK installs on any Android TV (some sets
+            // are x86_64 rather than ARM).
+            ndk {
+                abiFilters 'armeabi-v7a', 'arm64-v8a', 'x86', 'x86_64'
+            }
         }
         stfdroid {
             applicationId "app.smarttube.fdroid"
