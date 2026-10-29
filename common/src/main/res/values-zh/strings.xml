@@ -789,8 +789,8 @@
   <string name="parental_limit_reset_all">清除全部设置（包括密码）</string>
   <string name="parental_limit_reset_all_desc">清除所有限额、密码以及当前的休息倒计时</string>
   <string name="parental_limit_reset_done">限时设置已重置</string>
-  <string name="parental_limit_title">今天先到这里</string>
-  <string name="parental_limit_rest_message">SmartTube 正在休息中，请稍后再来。</string>
+  <string name="parental_limit_title">先休息一下吧</string>
+  <string name="parental_limit_rest_message">看久啦，让眼睛也歇一歇吧。</string>
   <string name="parental_limit_quota_message">观看时间已达上限</string>
   <string name="parental_limit_parent_options">家长操作</string>
   <string name="parental_limit_action_extend_10">延长 10 分钟</string>

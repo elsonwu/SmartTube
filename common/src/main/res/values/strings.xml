@@ -792,8 +792,8 @@
     <string name="parental_limit_reset_all">Reset everything (including PIN)</string>
     <string name="parental_limit_reset_all_desc">Clears all limits, the PIN, and any active rest period</string>
     <string name="parental_limit_reset_done">Parental limit reset</string>
-    <string name="parental_limit_title">Time\'s up for now</string>
-    <string name="parental_limit_rest_message">SmartTube is resting. Please come back later.</string>
+    <string name="parental_limit_title">Take a break</string>
+    <string name="parental_limit_rest_message">You\'ve been watching a while - let your eyes rest too.</string>
     <string name="parental_limit_quota_message">Watching time limit reached</string>
     <string name="parental_limit_parent_options">Parent options</string>
     <string name="parental_limit_action_extend_10">Extend session by 10 minutes</string>

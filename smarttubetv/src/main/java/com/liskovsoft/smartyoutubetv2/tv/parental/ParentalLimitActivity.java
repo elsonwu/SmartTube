@@ -290,16 +290,19 @@ public class ParentalLimitActivity extends Activity {
         return p;
     }
 
+    /**
+     * Formats the remaining rest time as {@code HH:MM:SS}.
+     *
+     * <p>Always includes the seconds so the digits visibly change every
+     * second - a frozen {@code MM:SS} display makes the screen look stuck.</p>
+     */
     private static String formatDuration(long ms) {
         if (ms <= 0) return "00:00:00";
         long total = ms / 1000;
         long h = total / 3600;
         long m = (total % 3600) / 60;
         long s = total % 60;
-        if (h > 0) {
-            return String.format(Locale.US, "%02d:%02d:%02d", h, m, s);
-        }
-        return String.format(Locale.US, "%02d:%02d", m, s);
+        return String.format(Locale.US, "%02d:%02d:%02d", h, m, s);
     }
 
     /** "30 分钟" / "1 小时 30 分钟" style duration for the remaining time. */
