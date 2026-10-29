@@ -76,8 +76,11 @@ if [ "$(git rev-parse --abbrev-ref HEAD)" != "$FORK_BRANCH" ]; then
     git checkout "$FORK_BRANCH"
 fi
 
-if [ -n "$(git status --porcelain)" ]; then
-    echo "[!] working tree is dirty - commit or stash first" >&2
+# Only tracked modifications block a merge. Untracked files (build outputs,
+# local keystores, personal scripts) are fine.
+if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
+    echo "[!] tracked files are modified - commit or stash them first:" >&2
+    git status --porcelain --untracked-files=no >&2
     exit 1
 fi
 
