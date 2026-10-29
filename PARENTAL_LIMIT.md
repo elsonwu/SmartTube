@@ -73,6 +73,7 @@ is registered with the controller at runtime
 | `app_name` / `browse_title` → `SmallTube` | makes it obvious which app is the patched one |
 | `ststable` now ships **all four ABIs** (`armeabi-v7a`, `arm64-v8a`, `x86`, `x86_64`) | the inherited `abiFilters` only produced ARM, which made the APK fail with `INSTALL_FAILED_NO_MATCHING_ABIS` on x86 TVs |
 | `google-services.json` moved aside | the upstream Firebase key isn't registered for the new package name; Crashlytics/Firebase are disabled in this fork |
+| `update_urls.xml` emptied (ststable) | the upstream update manifest pointed at the official SmartTube release channel, which would download and install the **original** SmartTube APK. With an empty array `AppVersionChecker` is a no-op, so neither the manual "Check for updates" button nor the periodic auto-update worker can fetch anything |
 | `.mise.toml` pins `temurin-17.0.21+9` | the upstream README asks for JDK 14, which was never published for arm64 macOS; the project's own CI already uses JDK 17 |
 
 ---
@@ -105,12 +106,44 @@ is registered with the controller at runtime
 ---
 
 ## 4. Time accumulation
-* The rest period uses `System.currentTimeMillis()` because rest must
-  survive a TV reboot, where `elapsedRealtime` resets.
+
+### 4.1 Foreground / playback time
+
+* Foreground time uses `SystemClock.elapsedRealtime()` — monotonic, so
+  changing the system clock cannot shorten a session.
 * `usedMs` is persisted every 5 s while ticking, so an OS-initiated
   process kill loses at most ~5 s of progress.
-* When the app comes back to the foreground mid-rest, the lock Activity
-  is launched immediately (no warm-up grace period).
+
+### 4.2 The rest period is wall-clock based
+
+The rest deadline is stored as an **absolute wall-clock instant**
+(`restUntilWall = System.currentTimeMillis() + restMs`), so:
+
+* The app does **not** have to stay open. The countdown continues while
+  the TV is switched off.
+* Switching the TV off and back on does not reset the rest.
+* When the app starts again it compares `now` against `restUntilWall`:
+  * deadline still in the future → the lock appears immediately, with
+    the remaining time
+  * deadline in the past → the rest is over and a **fresh quota** is
+    granted
+
+`ParentalLimitController.refreshRestState()` implements that check. It is
+called from three places, because the regular ticker stops while the lock
+screen is the only foreground Activity:
+
+* `onActivityStarted()` — covers "the TV was off, the kid came back"
+* the 500 ms tick — covers "the rest ended while the app was open"
+* `ParentalLimitActivity.refresh()` — covers "the lock screen is showing"
+
+Without the third one the user would be locked out forever, because the
+quota stays exhausted after the rest expires.
+
+> **Caveat.** The rest deadline uses the wall clock, so it is only as
+> trustworthy as the TV's clock. Android TV re-syncs the clock over the
+> network automatically, which corrects most manual changes; a kid with
+> access to the TV's settings could still move the clock forward.
+> The *foreground* timer is unaffected by this (monotonic clock).
 
 This is a best-effort, app-level mechanism — a determined child with
 ADB / system access can still uninstall or clear app data, opening a
@@ -233,6 +266,10 @@ PIN to access:
 | 13 | *Time actually watching* mode: browse for 5 min, no playback | no time counted |
 | 14 | *Time actually watching* mode: play for 5 min, pause for 5 min | only ~5 min counted |
 | 15 | *Time actually watching* mode: switch to playback mode | the mode change requires the PIN |
+| 16 | Lock the app, then **switch the TV off**, wait past the rest period, turn it back on | the app opens normally with a fresh quota |
+| 17 | Lock the app, wait past the rest period **without** switching the TV off | the lock screen closes itself |
+| 18 | Lock the app, restart the app mid-rest | the lock is still showing with the correct remaining time |
+| 19 | App Settings → About → Check for updates | no update is offered (the upstream manifest is disabled) |
 
 ---
 

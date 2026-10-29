@@ -291,6 +291,9 @@ public final class ParentalLimitController implements Application.ActivityLifecy
             return;
         }
 
+        // The rest period may have ended while the app was closed.
+        refreshRestState();
+
         // If we're already resting (e.g. user relaunched the app mid-rest), lock immediately.
         if (isResting()) {
             launchLockIfNeeded(activity);
@@ -459,6 +462,9 @@ public final class ParentalLimitController implements Application.ActivityLifecy
             return;
         }
 
+        // The rest may have ended (wall-clock) - give the user a fresh quota.
+        refreshRestState();
+
         long limit = mData.getLimitMs();
 
         if (used >= limit) {
@@ -514,6 +520,37 @@ public final class ParentalLimitController implements Application.ActivityLifecy
         if (mCurrentActivity != null) {
             launchLockIfNeeded(mCurrentActivity);
         }
+    }
+
+    /**
+     * Ends the rest period once its wall-clock deadline has passed and grants
+     * a fresh quota.
+     *
+     * <p>This is what makes the rest survive the TV being switched off: the
+     * deadline is stored as an absolute wall-clock instant, so when the app
+     * starts again (minutes or hours later) the elapsed rest time is simply
+     * {@code now - restUntilWall}.</p>
+     *
+     * <p>It also has to be called explicitly, because the regular ticker stops
+     * while the lock screen is the only foreground Activity - without this the
+     * quota would stay exhausted and the user would be locked out forever.</p>
+     */
+    public void refreshRestState() {
+        long restUntil = mData.getRestUntilWall();
+        if (restUntil <= 0) {
+            return;
+        }
+        if (System.currentTimeMillis() < restUntil) {
+            return; // still resting
+        }
+
+        // The rest period is over - the user earned a fresh session.
+        mData.setRestUntilWall(0);
+        mData.setUsedMs(0);
+        mData.setSessionStartElapsed(0);
+        mData.setPlayingStartElapsed(0);
+        mLastSavedUsedMs = 0;
+        restartForegroundSession();
     }
 
     /**

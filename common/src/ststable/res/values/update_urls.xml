@@ -1,6 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- Parental-limit fork: the upstream update manifest is deliberately
+         disabled. It points at the official SmartTube release channel, which
+         would download and install the ORIGINAL SmartTube APK over this
+         build. Leaving the list empty makes AppVersionChecker a no-op
+         ("Supplied url update list is null or empty"), so neither the manual
+         "Check for updates" button nor the periodic auto-update worker can
+         fetch anything. -->
     <string-array name="update_urls">
-        <item>https://github.com/yuliskov/SmartTubeNext/releases/download/latest/smarttube_stable2.json</item>
     </string-array>
 </resources>

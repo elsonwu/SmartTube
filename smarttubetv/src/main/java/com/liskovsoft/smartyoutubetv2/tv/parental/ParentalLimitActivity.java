@@ -160,6 +160,11 @@ public class ParentalLimitActivity extends Activity {
         if (mController == null) {
             return;
         }
+
+        // The rest deadline is wall-clock based, so it expires even while the
+        // TV is switched off. Ask the controller to end the rest if it passed.
+        mController.refreshRestState();
+
         if (mController.isResting()) {
             long remaining = mController.getRestRemainingMs();
             mMessageView.setText(R.string.parental_limit_rest_message);
