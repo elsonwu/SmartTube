@@ -28,6 +28,11 @@ public final class ParentalLimitData {
     public static final long MIN_REST_MS = TimeUnit.MINUTES.toMillis(5);
     public static final long MAX_REST_MS = TimeUnit.HOURS.toMillis(4);
 
+    /** Count any time the app is in the foreground (browsing, searching, playing). */
+    public static final int COUNTING_MODE_FOREGROUND = 0;
+    /** Count only the time a video is actually playing. */
+    public static final int COUNTING_MODE_PLAYBACK = 1;
+
     private static final String PREFS = "parental_limit";
     private static final String KEY_ENABLED = "enabled";
     private static final String KEY_LIMIT_MS = "limit_ms";
@@ -38,6 +43,8 @@ public final class ParentalLimitData {
     private static final String KEY_PIN_HASH = "pin_hash";
     private static final String KEY_PIN_SALT = "pin_salt";
     private static final String KEY_LAST_OVERRIDE = "last_override_elapsed";
+    private static final String KEY_COUNTING_MODE = "counting_mode";
+    private static final String KEY_PLAYING_START = "playing_start_elapsed";
 
     @SuppressLint("StaticFieldLeak")
     private static ParentalLimitData sInstance;
@@ -158,6 +165,32 @@ public final class ParentalLimitData {
         mPrefs.edit().putLong(KEY_LAST_OVERRIDE, elapsed).apply();
     }
 
+    /** {@link #COUNTING_MODE_FOREGROUND} or {@link #COUNTING_MODE_PLAYBACK}. */
+    public int getCountingMode() {
+        int mode = mPrefs.getInt(KEY_COUNTING_MODE, COUNTING_MODE_FOREGROUND);
+        return mode == COUNTING_MODE_PLAYBACK ? COUNTING_MODE_PLAYBACK : COUNTING_MODE_FOREGROUND;
+    }
+
+    public void setCountingMode(int mode) {
+        mPrefs.edit()
+                .putInt(KEY_COUNTING_MODE, mode == COUNTING_MODE_PLAYBACK
+                        ? COUNTING_MODE_PLAYBACK : COUNTING_MODE_FOREGROUND)
+                .apply();
+    }
+
+    /**
+     * The {@link android.os.SystemClock#elapsedRealtime()} value at which the
+     * current uninterrupted playback stretch started, or 0 when nothing is
+     * playing. Only used in {@link #COUNTING_MODE_PLAYBACK}.
+     */
+    public long getPlayingStartElapsed() {
+        return mPrefs.getLong(KEY_PLAYING_START, 0);
+    }
+
+    public void setPlayingStartElapsed(long elapsed) {
+        mPrefs.edit().putLong(KEY_PLAYING_START, elapsed).apply();
+    }
+
     /** Reset all state to defaults. Caller must verify PIN first. */
     public void resetAll() {
         mPrefs.edit().clear().apply();
@@ -170,6 +203,7 @@ public final class ParentalLimitData {
                 .remove(KEY_SESSION_START)
                 .remove(KEY_REST_UNTIL)
                 .remove(KEY_LAST_OVERRIDE)
+                .remove(KEY_PLAYING_START)
                 .apply();
     }
 

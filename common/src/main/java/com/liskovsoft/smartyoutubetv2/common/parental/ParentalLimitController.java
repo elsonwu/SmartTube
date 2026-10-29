@@ -303,8 +303,18 @@ public final class ParentalLimitController implements Application.ActivityLifecy
         mForegroundCount = Math.max(0, mForegroundCount - 1);
 
         if (mForegroundCount == 0) {
-            mData.setUsedMs(snapshot);
-            mLastSavedUsedMs = snapshot;
+            if (mData.getCountingMode() == ParentalLimitData.COUNTING_MODE_PLAYBACK) {
+                // Bank the elapsed playback time. The foreground snapshot above
+                // already includes it, but recomputing after the bank keeps the
+                // two paths from drifting apart.
+                syncPlaybackState();
+                long total = computeCurrentUsedMs();
+                mData.setUsedMs(total);
+                mLastSavedUsedMs = total;
+            } else {
+                mData.setUsedMs(snapshot);
+                mLastSavedUsedMs = snapshot;
+            }
             mData.setSessionStartElapsed(0);
             mHandler.removeCallbacks(mTicker);
             mCurrentActivity = null;
@@ -405,6 +415,10 @@ public final class ParentalLimitController implements Application.ActivityLifecy
             return;
         }
 
+        // In playback-only mode, sync the playing stretch with the engine FIRST.
+        // Doing it after computing `used` would bank the same stretch twice.
+        syncPlaybackState();
+
         long used = computeCurrentUsedMs();
 
         // Persist periodically so a sudden kill doesn't lose much progress.
@@ -482,12 +496,21 @@ public final class ParentalLimitController implements Application.ActivityLifecy
     }
 
     /**
-     * Returns the current cumulative foreground time, summing any previously
-     * persisted {@code usedMs} with the in-progress session length measured by
-     * the monotonic clock.
+     * Returns the current cumulative time, summing any previously persisted
+     * {@code usedMs} with the in-progress stretch measured by the monotonic
+     * clock.
+     *
+     * <p>In {@link ParentalLimitData#COUNTING_MODE_FOREGROUND} the stretch is
+     * the whole foreground session. In
+     * {@link ParentalLimitData#COUNTING_MODE_PLAYBACK} it is only the current
+     * uninterrupted playback stretch.</p>
      */
     @AnyThread
     long computeCurrentUsedMs() {
+        if (mData.getCountingMode() == ParentalLimitData.COUNTING_MODE_PLAYBACK) {
+            return computePlaybackUsedMs();
+        }
+
         long start = mData.getSessionStartElapsed();
         if (start <= 0 || mForegroundCount == 0) {
             return mData.getUsedMs();
@@ -499,5 +522,63 @@ public final class ParentalLimitController implements Application.ActivityLifecy
             return mData.getUsedMs();
         }
         return mData.getUsedMs() + delta;
+    }
+
+    /** Cumulative time plus the currently running playback stretch. */
+    private long computePlaybackUsedMs() {
+        long base = mData.getUsedMs();
+        long playingStart = mData.getPlayingStartElapsed();
+        if (playingStart <= 0) {
+            return base;
+        }
+        long delta = SystemClock.elapsedRealtime() - playingStart;
+        if (delta < 0) {
+            return base;
+        }
+        return base + delta;
+    }
+
+    /**
+     * Keeps the playback stretch in sync with the engine: starts counting when
+     * a video begins playing, banks the elapsed time when it stops.
+     *
+     * <p>Only counts while the app is in the foreground - a video left playing
+     * in the background (PiP) does not accumulate.</p>
+     */
+    private void syncPlaybackState() {
+        if (mData.getCountingMode() != ParentalLimitData.COUNTING_MODE_PLAYBACK) {
+            return;
+        }
+
+        boolean isPlaying = mForegroundCount > 0 && isPlayerPlaying();
+        long playingStart = mData.getPlayingStartElapsed();
+
+        if (isPlaying) {
+            if (playingStart <= 0) {
+                mData.setPlayingStartElapsed(SystemClock.elapsedRealtime());
+            }
+            return;
+        }
+
+        if (playingStart > 0) {
+            long delta = SystemClock.elapsedRealtime() - playingStart;
+            if (delta > 0) {
+                mData.setUsedMs(mData.getUsedMs() + delta);
+                mLastSavedUsedMs = mData.getUsedMs();
+            }
+            mData.setPlayingStartElapsed(0);
+            mData.setSessionStartElapsed(0);
+        }
+    }
+
+    /** True when the playback engine currently reports an active playback. */
+    private boolean isPlayerPlaying() {
+        try {
+            PlaybackPresenter presenter = PlaybackPresenter.instance(mApp);
+            PlaybackView view = presenter.getPlayer();
+            return view != null && view.isPlaying();
+        } catch (Exception e) {
+            return false;
+        }
     }
 }

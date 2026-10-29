@@ -48,6 +48,7 @@ public class ParentalLimitSettingsPresenter extends BasePresenter<Void> {
         AppDialogPresenter dialog = AppDialogPresenter.instance(getContext());
 
         appendEnableSwitch(dialog);
+        appendCountingModeCategory(dialog);
         appendLimitCategory(dialog);
         appendRestCategory(dialog);
         appendPinCategory(dialog);
@@ -57,6 +58,35 @@ public class ParentalLimitSettingsPresenter extends BasePresenter<Void> {
     }
 
     // ─── Categories ────────────────────────────────────────────────────────
+
+    /**
+     * Lets the parent choose what the quota measures: any foreground time, or
+     * only the time a video is actually playing.
+     */
+    private void appendCountingModeCategory(AppDialogPresenter dialog) {
+        List<OptionItem> options = new ArrayList<>();
+        int current = mData.getCountingMode();
+
+        options.add(UiOptionItem.from(
+                getContext().getString(R.string.parental_limit_counting_foreground),
+                getContext().getString(R.string.parental_limit_counting_foreground_desc),
+                option -> requirePin(
+                        getContext().getString(R.string.parental_limit_confirm_change_counting),
+                        () -> mData.setCountingMode(ParentalLimitData.COUNTING_MODE_FOREGROUND),
+                        null),
+                current == ParentalLimitData.COUNTING_MODE_FOREGROUND));
+
+        options.add(UiOptionItem.from(
+                getContext().getString(R.string.parental_limit_counting_playback),
+                getContext().getString(R.string.parental_limit_counting_playback_desc),
+                option -> requirePin(
+                        getContext().getString(R.string.parental_limit_confirm_change_counting),
+                        () -> mData.setCountingMode(ParentalLimitData.COUNTING_MODE_PLAYBACK),
+                        null),
+                current == ParentalLimitData.COUNTING_MODE_PLAYBACK));
+
+        dialog.appendRadioCategory(getContext().getString(R.string.parental_limit_counting_mode), options);
+    }
 
     private void appendEnableSwitch(AppDialogPresenter dialog) {
         dialog.appendSingleSwitch(UiOptionItem.from(

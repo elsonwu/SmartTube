@@ -792,4 +792,10 @@
   <string name="parental_limit_locked_toast">觀看時間已到，休息 %1$s 後再繼續</string>
   <string name="parental_limit_warning_toast">還剩 %1$s 就要開始休息了</string>
   <string name="parental_limit_rest_remaining">還需 %1$s 才能繼續觀看</string>
+  <string name="parental_limit_counting_mode">限時統計方式</string>
+  <string name="parental_limit_counting_foreground">累計使用時間</string>
+  <string name="parental_limit_counting_foreground_desc">全部計入：瀏覽首頁、搜尋、播放影片都算時間</string>
+  <string name="parental_limit_counting_playback">僅實際觀看時間</string>
+  <string name="parental_limit_counting_playback_desc">只統計影片正在播放的時間，暫停和瀏覽不計時</string>
+  <string name="parental_limit_confirm_change_counting">輸入密碼以修改統計方式</string>
 </resources>

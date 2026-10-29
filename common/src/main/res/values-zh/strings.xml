@@ -793,4 +793,10 @@
   <string name="parental_limit_locked_toast">观看时间已到，休息 %1$s 后再继续</string>
   <string name="parental_limit_warning_toast">还剩 %1$s 就要开始休息了</string>
   <string name="parental_limit_rest_remaining">还需 %1$s 才能继续观看</string>
+  <string name="parental_limit_counting_mode">限时统计方式</string>
+  <string name="parental_limit_counting_foreground">累计使用时间</string>
+  <string name="parental_limit_counting_foreground_desc">全部计入：浏览首页、搜索、播放视频都算时间</string>
+  <string name="parental_limit_counting_playback">仅实际观看时间</string>
+  <string name="parental_limit_counting_playback_desc">只统计视频正在播放的时间，暂停和浏览不计时</string>
+  <string name="parental_limit_confirm_change_counting">输入密码以修改统计方式</string>
 </resources>

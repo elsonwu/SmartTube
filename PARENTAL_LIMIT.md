@@ -1,9 +1,8 @@
 # SmartTube Parental Time Limit (fork patch)
 
 This fork adds an **optional, PIN-protected time-limit feature** to SmartTube.
-After the configured amount of foreground use, the app locks itself for a
-mandatory rest period. Rest is enforced even across app restarts and TV
-reboots.
+After the configured amount of use, the app locks itself for a mandatory rest
+period. Rest is enforced even across app restarts and TV reboots.
 
 This is a **personal-fork** modification. It is not part of upstream
 SmartTube and is not supported by the upstream project.
@@ -14,37 +13,67 @@ SmartTube and is not supported by the upstream project.
 
 | Behaviour | Default |
 |---|---|
-| Watching time per session | **30 min** (foreground time, not playback time) |
+| Watching time per session | **30 min** |
 | Mandatory rest after the limit | **30 min** (wall-clock, enforced across restarts) |
-| Cumulative timer | counts while **any** non-lock Activity is in foreground (browsing, search, playback, PiP) |
-| Timer pauses when | the app is fully backgrounded, or the lock screen is the only foreground Activity |
-| PIN protects | enable/disable, change limit, change rest, change PIN, reset timer, reset everything, parent options on the lock screen |
+| What the limit measures | **Time spent in the app** (see §1.1) |
+| Warning before the lock | a toast appears **60 s** before the quota runs out |
+| On lock | the video is **paused**, the lock screen shows a live countdown |
+| PIN protects | enable/disable, change limit, change rest, change counting mode, change PIN, reset timer, reset everything, parent options on the lock screen |
 | Storage | a separate `parental_limit` SharedPreferences file |
 | First-run flow | parent is forced to set a PIN before the feature can be enabled |
 
 The feature is **off** by default. Enable it from
-*App Settings → General → Parental time limit*.
+*App Settings → Parental time limit* (a top-level entry, right below
+*General*).
+
+### 1.1 Counting modes
+
+| Mode | What counts | What does not |
+|---|---|---|
+| **Time spent in the app** (default) | any time a non-lock Activity is in the foreground: browsing, searching, playing, PiP | time the app is fully backgrounded |
+| **Time actually watching** | only while the playback engine reports an active playback | paused videos, browsing, searching, and background (PiP) playback |
+
+Both modes use the same limit, the same rest period and the same PIN
+protection — they only differ in *what the quota measures*.
+
+In *Time actually watching* mode the controller polls
+`PlaybackView.isPlaying()` (via `PlaybackPresenter`) on the 500 ms tick and
+banks the elapsed playback time whenever the video stops.
 
 ---
 
 ## 2. Files added / changed
 
 ```text
-smarttubetv/src/main/AndroidManifest.xml                                              (modify)
+smarttubetv/src/main/AndroidManifest.xml                                                              (modify)
 +
-smarttubetv/src/main/java/com/liskovsoft/smartyoutubetv2/tv/parental/ParentalLimitData.java         (new)
-smarttubetv/src/main/java/com/liskovsoft/smartyoutubetv2/tv/parental/PinHasher.java                   (new)
-smarttubetv/src/main/java/com/liskovsoft/smartyoutubetv2/tv/parental/ParentalLimitController.java     (new)
+common/src/main/java/com/liskovsoft/smartyoutubetv2/common/parental/ParentalLimitData.java           (new)
+common/src/main/java/com/liskovsoft/smartyoutubetv2/common/parental/ParentalLimitController.java     (new)
+common/src/main/java/com/liskovsoft/smartyoutubetv2/common/parental/PinHasher.java                   (new)
 smarttubetv/src/main/java/com/liskovsoft/smartyoutubetv2/tv/parental/ParentalLimitActivity.java      (new)
 smarttubetv/src/main/java/com/liskovsoft/smartyoutubetv2/tv/ui/main/MainApplication.java             (modify)
 +
 common/src/main/java/com/liskovsoft/smartyoutubetv2/common/app/presenters/settings/ParentalLimitSettingsPresenter.java  (new)
-common/src/main/java/com/liskovsoft/smartyoutubetv2/common/app/presenters/settings/GeneralSettingsPresenter.java        (modify)
+common/src/main/java/com/liskovsoft/smartyoutubetv2/common/misc/AppDataSourceManager.java            (modify)
 common/src/main/res/values/strings.xml                                                              (modify)
+common/src/main/res/values-zh/strings.xml                                                           (modify)
+common/src/main/res/values-zh-rTW/strings.xml                                                        (modify)
 ```
 
-No other files are touched. The feature is fully self-contained and can be
-removed by reverting the seven `±` lines plus deleting the four `+` files.
+The controller lives in the `common` module so the settings presenter can
+reach it without a circular dependency on the `tv` module. The lock Activity
+is registered with the controller at runtime
+(`ParentalLimitController.setLockActivityClass(...)`) for the same reason.
+
+### 2.1 Fork-specific build changes
+
+| Change | Why |
+|---|---|
+| `applicationId` → `org.smalltube.stable` | lets the patched APK be installed **side-by-side** with the upstream SmartTube |
+| `app_name` / `browse_title` → `SmallTube` | makes it obvious which app is the patched one |
+| `ststable` now ships **all four ABIs** (`armeabi-v7a`, `arm64-v8a`, `x86`, `x86_64`) | the inherited `abiFilters` only produced ARM, which made the APK fail with `INSTALL_FAILED_NO_MATCHING_ABIS` on x86 TVs |
+| `google-services.json` moved aside | the upstream Firebase key isn't registered for the new package name; Crashlytics/Firebase are disabled in this fork |
+| `.mise.toml` pins `temurin-17.0.21+9` | the upstream README asks for JDK 14, which was never published for arm64 macOS; the project's own CI already uses JDK 17 |
 
 ---
 
@@ -197,8 +226,13 @@ PIN to access:
 | 6 | Right PIN on parent options | menu opens |
 | 7 | After rest ends, use again, hit limit | lock appears again |
 | 8 | Browse ↔ Playback ↔ Search switching | timer keeps running, no resets |
-| 9 | Background audio + foreground usage | timer counts both |
-| 10 | Manual system clock change mid-rest | wall-clock rest deadline is honoured; monotonic foreground timer unaffected |
+| 9 | 60 s before the limit | a warning toast appears |
+| 10 | The lock engages while a video plays | the video is paused (no audio behind the lock) |
+| 11 | Lock screen | shows the live countdown and “you can watch again in N minutes” |
+| 12 | Manual system clock change mid-rest | wall-clock rest deadline is honoured; monotonic foreground timer unaffected |
+| 13 | *Time actually watching* mode: browse for 5 min, no playback | no time counted |
+| 14 | *Time actually watching* mode: play for 5 min, pause for 5 min | only ~5 min counted |
+| 15 | *Time actually watching* mode: switch to playback mode | the mode change requires the PIN |
 
 ---
 
