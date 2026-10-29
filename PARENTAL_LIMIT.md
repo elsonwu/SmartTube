@@ -21,6 +21,7 @@ SmartTube and is not supported by the upstream project.
 | PIN protects | enable/disable, change limit, change rest, change counting mode, change PIN, reset timer, reset everything, parent options on the lock screen |
 | Storage | a separate `parental_limit` SharedPreferences file |
 | First-run flow | parent is forced to set a PIN before the feature can be enabled |
+| PIN prompt | **once per visit** to the parental-limit screen. The first change asks for the PIN; after that every further change in the same visit is applied without asking again. Leaving the screen revokes the authorization |
 
 The feature is **off** by default. Enable it from
 *App Settings → Parental time limit* (a top-level entry, right below
@@ -270,6 +271,9 @@ PIN to access:
 | 17 | Lock the app, wait past the rest period **without** switching the TV off | the lock screen closes itself |
 | 18 | Lock the app, restart the app mid-rest | the lock is still showing with the correct remaining time |
 | 19 | App Settings → About → Check for updates | no update is offered (the upstream manifest is disabled) |
+| 20 | Parental time limit → change the limit, then change the rest | the PIN is asked **once**, not twice |
+| 21 | Change the limit, leave the screen, come back, change it again | the PIN is asked again |
+| 22 | Wrong PIN on the first change | access denied, and the next change asks again |
 
 ---
 

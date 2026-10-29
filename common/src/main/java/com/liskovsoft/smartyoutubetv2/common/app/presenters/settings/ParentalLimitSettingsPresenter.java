@@ -34,6 +34,12 @@ import java.util.concurrent.TimeUnit;
  */
 public class ParentalLimitSettingsPresenter extends BasePresenter<Void> {
     private final ParentalLimitData mData;
+    /**
+     * True once the parent has entered the correct PIN during this visit to
+     * the parental-limit screen. Every later change is applied without asking
+     * again; the flag is cleared as soon as the screen is left.
+     */
+    private boolean mAuthorized;
 
     public ParentalLimitSettingsPresenter(Context context) {
         super(context);
@@ -47,6 +53,8 @@ public class ParentalLimitSettingsPresenter extends BasePresenter<Void> {
     public void show() {
         AppDialogPresenter dialog = AppDialogPresenter.instance(getContext());
 
+        mAuthorized = false;
+
         appendEnableSwitch(dialog);
         appendCountingModeCategory(dialog);
         appendLimitCategory(dialog);
@@ -54,7 +62,9 @@ public class ParentalLimitSettingsPresenter extends BasePresenter<Void> {
         appendPinCategory(dialog);
         appendResetCategory(dialog);
 
-        dialog.showDialog(getContext().getString(R.string.parental_limit_settings_title));
+        // Drop the session authorization as soon as the parent leaves.
+        dialog.showDialog(getContext().getString(R.string.parental_limit_settings_title),
+                () -> mAuthorized = false);
     }
 
     // ─── Categories ────────────────────────────────────────────────────────
@@ -196,6 +206,12 @@ public class ParentalLimitSettingsPresenter extends BasePresenter<Void> {
      * bootstrap the feature without a chicken-and-egg problem.
      */
     private void requirePin(String prompt, Runnable onSuccess, Runnable onFirstUse) {
+        if (mAuthorized) {
+            // Already verified during this visit - don't nag the parent again.
+            onSuccess.run();
+            return;
+        }
+
         if (!mData.isPinConfigured()) {
             // Bootstrap path: force the parent to set a PIN before any change.
             if (onFirstUse != null) {
@@ -211,6 +227,8 @@ public class ParentalLimitSettingsPresenter extends BasePresenter<Void> {
                 null,
                 pin -> {
                     if (mData.checkPin(pin)) {
+                        // Authorize the rest of this visit to the screen.
+                        mAuthorized = true;
                         onSuccess.run();
                         return true;
                     }
@@ -241,6 +259,8 @@ public class ParentalLimitSettingsPresenter extends BasePresenter<Void> {
                     if (c != null) {
                         c.setPin(pin);
                     }
+                    // Setting the PIN proves the parent is at the keyboard.
+                    mAuthorized = true;
                     if (afterSet != null) {
                         afterSet.run();
                     }
@@ -253,6 +273,16 @@ public class ParentalLimitSettingsPresenter extends BasePresenter<Void> {
             promptSetPin(getContext().getString(R.string.parental_limit_set_pin), null);
             return;
         }
+
+        if (mAuthorized) {
+            // Already verified during this visit - only ask for the new PIN.
+            promptSetPin(
+                    getContext().getString(R.string.parental_limit_enter_new_pin),
+                    () -> MessageHelpers.showMessage(getContext(),
+                            R.string.parental_limit_pin_changed));
+            return;
+        }
+
         SimpleEditDialog.showPassword(
                 getContext(),
                 getContext().getString(R.string.parental_limit_enter_current_pin),
@@ -263,6 +293,7 @@ public class ParentalLimitSettingsPresenter extends BasePresenter<Void> {
                                 R.string.parental_limit_wrong_pin);
                         return false;
                     }
+                    mAuthorized = true;
                     promptSetPin(
                             getContext().getString(R.string.parental_limit_enter_new_pin),
                             () -> MessageHelpers.showMessage(getContext(),
