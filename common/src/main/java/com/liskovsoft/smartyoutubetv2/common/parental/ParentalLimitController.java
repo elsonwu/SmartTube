@@ -13,6 +13,11 @@ import androidx.annotation.AnyThread;
 import androidx.annotation.MainThread;
 import androidx.annotation.Nullable;
 
+import com.liskovsoft.sharedutils.helpers.MessageHelpers;
+import com.liskovsoft.smartyoutubetv2.common.R;
+
+import java.util.concurrent.TimeUnit;
+
 /**
  * Enforces a parental time limit on the SmartTube app.
  *
@@ -344,10 +349,43 @@ public final class ParentalLimitController implements Application.ActivityLifecy
                 | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
         try {
             fromActivity.startActivity(intent);
+            showLockedToast();
         } catch (Exception e) {
             // ActivityNotFoundException etc. — reset so a retry is possible.
             mLockLaunched = false;
         }
+    }
+
+    /**
+     * Tell the user straight away how long the rest lasts. The lock screen shows
+     * a live countdown too, but a toast makes the reason obvious even when the
+     * lock Activity ends up behind something else.
+     */
+    private void showLockedToast() {
+        long restMs = mData.getRestMs();
+        String duration = formatRestDuration(restMs);
+        try {
+            MessageHelpers.showLongMessage(
+                    mApp,
+                    mApp.getString(R.string.parental_limit_locked_toast, duration));
+        } catch (Exception e) {
+            // Never let a toast break the lock flow.
+        }
+    }
+
+    /** "30 minutes" / "1 hour 30 minutes" / "45 seconds" — locale aware. */
+    private static String formatRestDuration(long ms) {
+        long totalMinutes = Math.max(1, TimeUnit.MILLISECONDS.toMinutes(ms));
+        long hours = totalMinutes / 60;
+        long minutes = totalMinutes % 60;
+
+        if (hours > 0 && minutes > 0) {
+            return String.format(java.util.Locale.getDefault(), "%d h %d min", hours, minutes);
+        }
+        if (hours > 0) {
+            return String.format(java.util.Locale.getDefault(), "%d h", hours);
+        }
+        return String.format(java.util.Locale.getDefault(), "%d min", minutes);
     }
 
     // ─── Tick loop ─────────────────────────────────────────────────────────

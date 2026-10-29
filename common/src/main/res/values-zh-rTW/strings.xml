@@ -748,4 +748,46 @@
   <string name="enable_conscrypt_desc">改進某些裝置 HTTPS、TLS 和 VPN 的相容性，但偶爾可能會導致播放問題或降低網路效能</string>
   <string name="comments_disabled">此影片已關閉留言</string>
   <string name="color_scheme_dark_blue_oled">深藍色 (OLED)</string>
+
+  <!-- 家長限時功能 -->
+  <string name="parental_limit_settings_title">家長限時</string>
+  <string name="parental_limit_settings_desc">設定每次可使用的時間，以及需要密碼才能略過的休息時間</string>
+  <string name="parental_limit_enable">啟用限時</string>
+  <string name="parental_limit_enable_desc">啟用後，達到設定時間應用會自動鎖定並強制休息</string>
+  <string name="parental_limit_view_limit">每次觀看時間</string>
+  <string name="parental_limit_rest_length">到時後強制休息時間</string>
+  <string name="parental_limit_change_pin">修改密碼</string>
+  <string name="parental_limit_set_pin">設定家長密碼</string>
+  <string name="parental_limit_set_pin_first_time">請先設定家長密碼</string>
+  <string name="parental_limit_enter_pin">請輸入家長密碼</string>
+  <string name="parental_limit_enter_current_pin">請輸入目前家長密碼</string>
+  <string name="parental_limit_enter_new_pin">請輸入新的家長密碼</string>
+  <string name="parental_limit_pin_too_short">密碼至少需要 4 位</string>
+  <string name="parental_limit_pin_changed">密碼已更新</string>
+  <string name="parental_limit_wrong_pin">密碼錯誤</string>
+  <string name="parental_limit_no_pin">未設定密碼，返回首頁</string>
+  <string name="parental_limit_confirm_to_enable">輸入密碼以啟用限時</string>
+  <string name="parental_limit_confirm_to_disable">輸入密碼以關閉限時</string>
+  <string name="parental_limit_confirm_change_limit">輸入密碼以修改觀看時間</string>
+  <string name="parental_limit_confirm_change_rest">輸入密碼以修改休息時間</string>
+  <string name="parental_limit_confirm_reset_timer">輸入密碼以重設計時器</string>
+  <string name="parental_limit_confirm_reset_all">輸入密碼以清除所有設定</string>
+  <string name="parental_limit_enabled_msg">限時已啟用</string>
+  <string name="parental_limit_disabled_msg">限時已關閉</string>
+  <string name="parental_limit_reset">重設</string>
+  <string name="parental_limit_reset_timer_only">僅重設計時器</string>
+  <string name="parental_limit_reset_all">清除全部設定（包括密碼）</string>
+  <string name="parental_limit_reset_all_desc">清除所有限額、密碼以及目前的休息倒數</string>
+  <string name="parental_limit_reset_done">限時設定已重設</string>
+  <string name="parental_limit_title">今天先到這裡</string>
+  <string name="parental_limit_rest_message">SmartTube 正在休息中，請稍後再來。</string>
+  <string name="parental_limit_quota_message">觀看時間已達上限</string>
+  <string name="parental_limit_parent_options">家長操作</string>
+  <string name="parental_limit_action_extend_10">延長 10 分鐘</string>
+  <string name="parental_limit_action_extend_30">延長 30 分鐘</string>
+  <string name="parental_limit_action_skip_rest">略過這次休息</string>
+  <string name="parental_limit_action_reset_timer">重設計時器</string>
+  <string name="parental_limit_action_disable_feature">關閉限時功能（需要密碼）</string>
+  <string name="parental_limit_action_cancel">取消</string>
+  <string name="parental_limit_locked_toast">觀看時間已到，休息 %1$s 後再繼續</string>
 </resources>

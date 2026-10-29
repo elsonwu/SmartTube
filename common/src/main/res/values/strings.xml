@@ -797,4 +797,5 @@
     <string name="parental_limit_action_reset_timer">Reset timer</string>
     <string name="parental_limit_action_disable_feature">Disable time limit (PIN required)</string>
     <string name="parental_limit_action_cancel">Cancel</string>
+    <string name="parental_limit_locked_toast">Time\'s up. Take a %1$s break and come back later.</string>
 </resources>
