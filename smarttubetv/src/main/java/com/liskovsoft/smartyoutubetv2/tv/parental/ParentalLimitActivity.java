@@ -17,9 +17,14 @@ import android.widget.TextView;
 
 import com.liskovsoft.sharedutils.helpers.MessageHelpers;
 import com.liskovsoft.smartyoutubetv2.tv.R;
+import com.liskovsoft.smartyoutubetv2.common.app.models.playback.ui.OptionItem;
+import com.liskovsoft.smartyoutubetv2.common.app.models.playback.ui.UiOptionItem;
+import com.liskovsoft.smartyoutubetv2.common.app.presenters.AppDialogPresenter;
 import com.liskovsoft.smartyoutubetv2.common.parental.ParentalLimitController;
 import com.liskovsoft.smartyoutubetv2.common.utils.SimpleEditDialog;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 
@@ -164,14 +169,23 @@ public class ParentalLimitActivity extends Activity {
             mRemainingView.setVisibility(View.VISIBLE);
             mParentButton.setVisibility(View.VISIBLE);
             mParentButton.setText(R.string.parental_limit_parent_options);
-        } else {
-            // Not resting — either quota just exhausted (transition) or state is invalid.
-            // Show a generic "time's up" prompt and let parent options unlock.
-            mMessageView.setText(R.string.parental_limit_quota_message);
-            mCountdownView.setText("00:00");
-            mRemainingView.setVisibility(View.GONE);
-            mParentButton.setVisibility(View.VISIBLE);
+            return;
         }
+
+        // The rest period is over. If the quota is no longer exhausted the user
+        // is free to continue - close the lock screen automatically instead of
+        // trapping them on a dead-end screen.
+        if (mController.getUsedMs() < mController.getLimitMs()) {
+            finish();
+            return;
+        }
+
+        // Not resting — either quota just exhausted (transition) or state is invalid.
+        // Show a generic "time's up" prompt and let parent options unlock.
+        mMessageView.setText(R.string.parental_limit_quota_message);
+        mCountdownView.setText("00:00");
+        mRemainingView.setVisibility(View.GONE);
+        mParentButton.setVisibility(View.VISIBLE);
     }
 
     private void onParentButtonClicked() {
@@ -198,55 +212,59 @@ public class ParentalLimitActivity extends Activity {
     }
 
     private void showParentMenu() {
-        // Simple text-based menu — intentionally lightweight to avoid a new XML layout.
-        String[] options = new String[] {
-                getString(R.string.parental_limit_action_extend_10),
-                getString(R.string.parental_limit_action_extend_30),
-                getString(R.string.parental_limit_action_skip_rest),
-                getString(R.string.parental_limit_action_reset_timer),
-                getString(R.string.parental_limit_action_disable_feature),
-                getString(R.string.parental_limit_action_cancel)
-        };
+        // Use the app's own dialog implementation. A plain framework
+        // android.app.AlertDialog renders its list items greyed out and
+        // unusable with a D-pad under the leanback theme.
+        AppDialogPresenter presenter = AppDialogPresenter.instance(this);
+        List<OptionItem> options = new ArrayList<>();
 
-        new android.app.AlertDialog.Builder(this, R.style.AppDialog)
-                .setTitle(R.string.parental_limit_parent_options)
-                .setItems(options, (dialog, which) -> {
-                    switch (which) {
-                        case 0:
-                            mController.extendCurrentSession(TimeUnit.MINUTES.toMillis(10));
-                            finish();
-                            break;
-                        case 1:
-                            mController.extendCurrentSession(TimeUnit.MINUTES.toMillis(30));
-                            finish();
-                            break;
-                        case 2:
-                            mController.skipRest();
-                            finish();
-                            break;
-                        case 3:
-                            mController.resetTimer();
-                            finish();
-                            break;
-                        case 4:
-                            mController.setEnabled(false);
-                            goHome();
-                            break;
-                        case 5:
-                        default:
-                            // Dismiss dialog; stay on lock screen if still resting.
-                            if (!mController.isResting()) {
-                                finish();
-                            }
-                            break;
-                    }
-                })
-                .setOnCancelListener(dialog -> {
-                    if (!mController.isResting()) {
-                        finish();
-                    }
-                })
-                .show();
+        options.add(UiOptionItem.from(
+                getString(R.string.parental_limit_action_extend_10),
+                option -> {
+                    mController.extendCurrentSession(TimeUnit.MINUTES.toMillis(10));
+                    presenter.closeDialog();
+                    finish();
+                }));
+
+        options.add(UiOptionItem.from(
+                getString(R.string.parental_limit_action_extend_30),
+                option -> {
+                    mController.extendCurrentSession(TimeUnit.MINUTES.toMillis(30));
+                    presenter.closeDialog();
+                    finish();
+                }));
+
+        options.add(UiOptionItem.from(
+                getString(R.string.parental_limit_action_skip_rest),
+                option -> {
+                    mController.skipRest();
+                    presenter.closeDialog();
+                    finish();
+                }));
+
+        options.add(UiOptionItem.from(
+                getString(R.string.parental_limit_action_reset_timer),
+                option -> {
+                    mController.resetTimer();
+                    presenter.closeDialog();
+                    finish();
+                }));
+
+        options.add(UiOptionItem.from(
+                getString(R.string.parental_limit_action_disable_feature),
+                option -> {
+                    mController.setEnabled(false);
+                    presenter.closeDialog();
+                    goHome();
+                }));
+
+        options.add(UiOptionItem.from(
+                getString(R.string.parental_limit_action_cancel),
+                option -> presenter.closeDialog()));
+
+        presenter.appendStringsCategory(
+                getString(R.string.parental_limit_parent_options), options);
+        presenter.showDialog(getString(R.string.parental_limit_parent_options));
     }
 
     private void goHome() {

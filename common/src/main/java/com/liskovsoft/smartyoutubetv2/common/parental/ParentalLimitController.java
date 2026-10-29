@@ -217,6 +217,10 @@ public final class ParentalLimitController implements Application.ActivityLifecy
     public void resetTimer() {
         mData.resetTimerState();
         mLastSavedUsedMs = 0;
+        // resetTimerState() wipes the session start. If the app is still in the
+        // foreground we have to restore it, otherwise the timer would stop
+        // accumulating and the kid would get unlimited time.
+        restartForegroundSession();
     }
 
     /**
@@ -228,6 +232,23 @@ public final class ParentalLimitController implements Application.ActivityLifecy
         mData.setUsedMs(0);
         mData.setSessionStartElapsed(0);
         mLastSavedUsedMs = 0;
+        // Same as above: keep counting while the app stays in the foreground.
+        restartForegroundSession();
+    }
+
+    /**
+     * Restarts the foreground session clock so the timer keeps running when
+     * the app is already in the foreground.
+     */
+    private void restartForegroundSession() {
+        if (mForegroundCount <= 0) {
+            return;
+        }
+        mData.setSessionStartElapsed(SystemClock.elapsedRealtime());
+        mLastSavedUsedMs = mData.getUsedMs();
+        // Make sure the ticker is running so the reset takes effect right away.
+        mHandler.removeCallbacks(mTicker);
+        mHandler.post(mTicker);
     }
 
     /**
