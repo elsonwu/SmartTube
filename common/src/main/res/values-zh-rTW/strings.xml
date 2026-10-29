@@ -790,4 +790,6 @@
   <string name="parental_limit_action_disable_feature">關閉限時功能（需要密碼）</string>
   <string name="parental_limit_action_cancel">取消</string>
   <string name="parental_limit_locked_toast">觀看時間已到，休息 %1$s 後再繼續</string>
+  <string name="parental_limit_warning_toast">還剩 %1$s 就要開始休息了</string>
+  <string name="parental_limit_rest_remaining">還需 %1$s 才能繼續觀看</string>
 </resources>

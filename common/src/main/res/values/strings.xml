@@ -798,4 +798,6 @@
     <string name="parental_limit_action_disable_feature">Disable time limit (PIN required)</string>
     <string name="parental_limit_action_cancel">Cancel</string>
     <string name="parental_limit_locked_toast">Time\'s up. Take a %1$s break and come back later.</string>
+    <string name="parental_limit_warning_toast">Only %1$s left before the break starts.</string>
+    <string name="parental_limit_rest_remaining">You can watch again in %1$s</string>
 </resources>

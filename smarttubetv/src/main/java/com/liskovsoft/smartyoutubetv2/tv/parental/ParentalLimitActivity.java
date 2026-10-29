@@ -40,6 +40,7 @@ public class ParentalLimitActivity extends Activity {
     private final Handler mHandler = new Handler(Looper.getMainLooper());
     private TextView mCountdownView;
     private TextView mMessageView;
+    private TextView mRemainingView;
     private Button mParentButton;
     private ParentalLimitController mController;
     private final Runnable mTick = new Runnable() {
@@ -128,6 +129,13 @@ public class ParentalLimitActivity extends Activity {
         mCountdownView.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
         root.addView(mCountdownView, lp(LinearLayout.LayoutParams.WRAP_CONTENT));
 
+        mRemainingView = new TextView(this);
+        mRemainingView.setTextSize(24);
+        mRemainingView.setTextColor(Color.parseColor("#9AE6B4"));
+        mRemainingView.setGravity(Gravity.CENTER);
+        mRemainingView.setPadding(0, 0, 0, 24);
+        root.addView(mRemainingView, lp(LinearLayout.LayoutParams.WRAP_CONTENT));
+
         mParentButton = new Button(this);
         mParentButton.setText(R.string.parental_limit_parent_options);
         mParentButton.setTextSize(18);
@@ -151,6 +159,9 @@ public class ParentalLimitActivity extends Activity {
             long remaining = mController.getRestRemainingMs();
             mMessageView.setText(R.string.parental_limit_rest_message);
             mCountdownView.setText(formatDuration(remaining));
+            mRemainingView.setText(getString(R.string.parental_limit_rest_remaining,
+                    formatMinutes(remaining)));
+            mRemainingView.setVisibility(View.VISIBLE);
             mParentButton.setVisibility(View.VISIBLE);
             mParentButton.setText(R.string.parental_limit_parent_options);
         } else {
@@ -158,6 +169,7 @@ public class ParentalLimitActivity extends Activity {
             // Show a generic "time's up" prompt and let parent options unlock.
             mMessageView.setText(R.string.parental_limit_quota_message);
             mCountdownView.setText("00:00");
+            mRemainingView.setVisibility(View.GONE);
             mParentButton.setVisibility(View.VISIBLE);
         }
     }
@@ -265,5 +277,20 @@ public class ParentalLimitActivity extends Activity {
             return String.format(Locale.US, "%02d:%02d:%02d", h, m, s);
         }
         return String.format(Locale.US, "%02d:%02d", m, s);
+    }
+
+    /** "30 分钟" / "1 小时 30 分钟" style duration for the remaining time. */
+    private static String formatMinutes(long ms) {
+        long totalMinutes = Math.max(1, TimeUnit.MILLISECONDS.toMinutes(ms));
+        long hours = totalMinutes / 60;
+        long minutes = totalMinutes % 60;
+
+        if (hours > 0 && minutes > 0) {
+            return String.format(Locale.getDefault(), "%d 小时 %d 分钟", hours, minutes);
+        }
+        if (hours > 0) {
+            return String.format(Locale.getDefault(), "%d 小时", hours);
+        }
+        return String.format(Locale.getDefault(), "%d 分钟", minutes);
     }
 }

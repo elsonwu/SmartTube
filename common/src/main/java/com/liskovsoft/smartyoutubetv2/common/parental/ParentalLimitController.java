@@ -15,6 +15,8 @@ import androidx.annotation.Nullable;
 
 import com.liskovsoft.sharedutils.helpers.MessageHelpers;
 import com.liskovsoft.smartyoutubetv2.common.R;
+import com.liskovsoft.smartyoutubetv2.common.app.presenters.PlaybackPresenter;
+import com.liskovsoft.smartyoutubetv2.common.app.views.PlaybackView;
 
 import java.util.concurrent.TimeUnit;
 
@@ -65,6 +67,8 @@ public final class ParentalLimitController implements Application.ActivityLifecy
     private static final long TICK_MS = 500;
     /** Persist every 5 s so a sudden kill doesn't lose much progress. */
     private static final long PERSIST_EVERY_MS = 5_000;
+    /** Warn the user this long before the quota runs out. */
+    private static final long WARNING_LEAD_MS = 60_000;
 
     public enum State { DISABLED, READY, ACTIVE, RESTING }
 
@@ -83,6 +87,7 @@ public final class ParentalLimitController implements Application.ActivityLifecy
     private int mForegroundCount;
     private Activity mCurrentActivity;
     private boolean mLockLaunched;
+    private boolean mWarningShown;
     private long mLastPersistElapsed;
     private long mLastSavedUsedMs;
     /**
@@ -259,6 +264,7 @@ public final class ParentalLimitController implements Application.ActivityLifecy
             mLastSavedUsedMs = mData.getUsedMs();
         }
         mForegroundCount++;
+        mWarningShown = false;
 
         if (!mData.isEnabled()) {
             return;
@@ -348,6 +354,9 @@ public final class ParentalLimitController implements Application.ActivityLifecy
                 | Intent.FLAG_ACTIVITY_CLEAR_TOP
                 | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
         try {
+            // Stop the video before showing the lock, otherwise the audio keeps
+            // playing behind the lock screen.
+            pausePlayback();
             fromActivity.startActivity(intent);
             showLockedToast();
         } catch (Exception e) {
@@ -415,12 +424,49 @@ public final class ParentalLimitController implements Application.ActivityLifecy
             return;
         }
 
-        if (used >= mData.getLimitMs()) {
+        long limit = mData.getLimitMs();
+
+        if (used >= limit) {
             beginRestAndLock();
             return;
         }
 
+        // Warn the user shortly before the quota runs out so the lock isn't a
+        // total surprise.
+        if (!mWarningShown && used >= limit - WARNING_LEAD_MS) {
+            mWarningShown = true;
+            showWarningToast(limit - used);
+        }
+
         mHandler.postDelayed(mTicker, TICK_MS);
+    }
+
+    /** "1 minute" style warning shown before the lock kicks in. */
+    private void showWarningToast(long remainingMs) {
+        try {
+            MessageHelpers.showLongMessage(
+                    mApp,
+                    mApp.getString(R.string.parental_limit_warning_toast,
+                            formatRestDuration(remainingMs)));
+        } catch (Exception e) {
+            // Never let a toast break the timer.
+        }
+    }
+
+    /**
+     * Stop whatever is playing when the lock engages. Without this the audio
+     * would keep going behind the lock screen.
+     */
+    private void pausePlayback() {
+        try {
+            PlaybackPresenter presenter = PlaybackPresenter.instance(mApp);
+            PlaybackView view = presenter.getPlayer();
+            if (view != null && view.isPlaying()) {
+                view.setPlayWhenReady(false);
+            }
+        } catch (Exception e) {
+            // Playback not running - nothing to pause.
+        }
     }
 
     private void beginRestAndLock() {
