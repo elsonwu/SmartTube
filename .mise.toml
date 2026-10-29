@@ -1,0 +1,11 @@
+# Tool versions for building SmartTube.
+#
+# Activate with:  eval "$(mise activate zsh)"   (add to ~/.zshrc)
+# Or just:       mise install && mise exec -- ./gradlew ...
+#
+# NOTE: the upstream README asks for JDK 14, but that version was never
+# published for arm64 macOS. The project's own CI (.github/workflows/CI.yml)
+# builds with JDK 17 (Temurin), which is what we pin here. `sourceCompatibility`
+# is still 1.8, so the produced bytecode is unchanged.
+[tools]
+java = "temurin-17.0.21+9"

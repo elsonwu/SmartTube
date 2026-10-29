@@ -17,6 +17,8 @@
 
     <uses-permission android:name="${applicationId}.ACCESS_VIDEO_DATA" />
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- DIAL discovery (SSDP multicast) -->
+    <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
 
@@ -215,6 +217,21 @@
             android:launchMode="singleInstance"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation|layoutDirection"
             android:screenOrientation="unspecified"/>
+
+        <!-- Parental time-limit lock screen. Launched by ParentalLimitController
+             when the cumulative foreground quota is exhausted. Not exported and
+             excluded from recents so it cannot be reopened from the recents UI.
+             NOTE: noHistory must stay off - the parent-options dialog opens on
+             top of this screen, and noHistory would destroy it, leaving the
+             controller's lock flag stuck. -->
+        <activity
+            android:name="com.liskovsoft.smartyoutubetv2.tv.parental.ParentalLimitActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:launchMode="singleTop"
+            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation|layoutDirection"
+            android:screenOrientation="landscape"
+            android:theme="@style/App.Theme.Leanback.Preferences.Opaque"/>
 
         <!-- BEGIN Launchers (used inside tvQuickActions. Don't rename them or move!) -->
 
