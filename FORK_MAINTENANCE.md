@@ -187,6 +187,11 @@ Then:
 git add <resolved files>
 git commit
 
+# ⚠️ ALWAYS sync the submodules - upstream often bumps MediaServiceCore and
+#    SharedModules, and a stale checkout breaks the build with
+#    "cannot find symbol" errors in upstream's OWN files.
+git submodule update --init --recursive
+
 # Rebuild + sanity check
 ./scripts/verify-fork.sh
 
@@ -601,6 +606,48 @@ A stale pairing code fails with
 *"Pair device with pairing code"* dialog **immediately** before pairing.
 `scripts/adb_pair_retry.py` retries for 5 minutes so the timing is not
 critical.
+
+### 8.10 Always sync the submodules after an upstream merge
+
+`MediaServiceCore` and `SharedModules` are git submodules, and upstream
+bumps their pointers regularly. Merging upstream updates the *pointers* but
+leaves the working copies where they were, so the build fails with errors
+in **upstream's own files**:
+
+```
+common/.../misc/DialServer.java:267: error: cannot find symbol
+common/.../exoplayer/other/DebugInfoManager.java:566: error: cannot find symbol
+```
+
+It looks like the fork broke something, but it did not - it is just a stale
+submodule. Always run:
+
+```bash
+git submodule update --init --recursive
+```
+
+`sync-upstream.sh` now does this automatically after a successful merge.
+
+### 8.11 Chinese translation files conflict wholesale
+
+Upstream occasionally rewrites `common/src/main/res/values-zh*/strings.xml`
+in one go (a "add all remaining translations" commit). Because we append at
+the end of the same file, the conflict covers the whole body.
+
+**Resolution** (what actually worked):
+
+```bash
+git checkout --theirs common/src/main/res/values-zh/strings.xml
+# take upstream's file, then re-append our block before </resources>
+```
+
+Extract our block from the pre-merge version (`git show HEAD:<file>`) and
+insert it before the closing `</resources>`. Our 48 `parental_limit_*`
+strings live in one contiguous, alphabetically-prefixed block, which makes
+this mechanical.
+
+`verify-fork.sh` checks that all three language files still have all 48
+strings, so a botched resolution cannot slip through.
 
 ---
 

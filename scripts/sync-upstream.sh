@@ -124,6 +124,7 @@ if [ "$MERGE_RC" -ne 0 ]; then
 
     git add <resolved files>
     git commit          # merge commit
+    git submodule update --init --recursive   # upstream may have bumped them
     ./scripts/verify-fork.sh               # rebuild + sanity checks
 
   To bail out:  git merge --abort
@@ -133,6 +134,11 @@ fi
 
 echo
 echo "[+] Merge succeeded."
+echo
+echo "[*] syncing the git submodules (upstream often bumps MediaServiceCore"
+echo "    and SharedModules - a stale checkout breaks the build with"
+echo "    'cannot find symbol' errors in upstream's own files)"
+git submodule update --init --recursive
 echo
 cat <<'NEXT'
   Next steps:
