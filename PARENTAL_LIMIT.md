@@ -112,8 +112,18 @@ is registered with the controller at runtime
 
 * Foreground time uses `SystemClock.elapsedRealtime()` — monotonic, so
   changing the system clock cannot shorten a session.
-* `usedMs` is persisted every 5 s while ticking, so an OS-initiated
+* **The accumulated total and the live stretch are kept separate.**
+  `usedMs` only ever holds *completed* time; the stretch that is currently
+  running is tracked via `sessionStartElapsed` (foreground) or
+  `playingStartElapsed` (playback) and added on top when the total is
+  computed. Storing the running total instead would double-count — the next
+  read would add the stretch delta on top of a base that already included
+  it, and the counted time would grow *quadratically* (42 seconds of real
+  usage would look like 30 minutes).
+* The live stretch is committed into the total every 5 s, so an OS-initiated
   process kill loses at most ~5 s of progress.
+* A stretch longer than 24 h is treated as corrupt (stale start time after a
+  process kill) and ignored in favour of the accumulated total.
 
 ### 4.2 The rest period is wall-clock based
 
@@ -274,6 +284,10 @@ PIN to access:
 | 20 | Parental time limit → change the limit, then change the rest | the PIN is asked **once**, not twice |
 | 21 | Change the limit, leave the screen, come back, change it again | the PIN is asked again |
 | 22 | Wrong PIN on the first change | access denied, and the next change asks again |
+| 23 | **Timing accuracy**: watch for 5 min with a 30 min limit | the remaining time drops by ~5 min, **not** by 25 min |
+| 24 | Watch for 1 min with a 15 min limit | the remaining time drops by ~1 min |
+| 25 | Overwrite-install over a build with the old time-accounting bug | the stale exhausted quota is cleared automatically on launch |
+| 26 | Extend the session by 30 min from the lock screen | the remaining time becomes ~30 min, and the lock screen closes |
 
 ---
 

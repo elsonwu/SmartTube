@@ -191,6 +191,36 @@ public final class ParentalLimitData {
         mPrefs.edit().putLong(KEY_PLAYING_START, elapsed).apply();
     }
 
+    /**
+     * Commits a live stretch into the accumulated total and closes that
+     * stretch.
+     *
+     * <p>The accumulated total ({@code usedMs}) must only ever hold
+     * <em>completed</em> time. The live stretch (foreground session or
+     * playback run) is tracked separately via {@code sessionStartElapsed} /
+     * {@code playingStartElapsed} and added on top when the total is
+     * computed.</p>
+     *
+     * <p>Storing the running total instead would double-count: the next read
+     * would add the stretch delta on top of a base that already included it,
+     * making the counted time grow quadratically (42 seconds of real usage
+     * would look like 30 minutes).</p>
+     *
+     * @param deltaMs   length of the stretch being closed
+     * @param playback  true to close the playback stretch, false for the
+     *                  foreground session stretch
+     */
+    public void commitStretch(long deltaMs, boolean playback) {
+        long newUsed = getUsedMs() + Math.max(0, deltaMs);
+        SharedPreferences.Editor editor = mPrefs.edit().putLong(KEY_USED_MS, newUsed);
+        if (playback) {
+            editor.putLong(KEY_PLAYING_START, 0);
+        } else {
+            editor.putLong(KEY_SESSION_START, 0);
+        }
+        editor.apply();
+    }
+
     /** Reset all state to defaults. Caller must verify PIN first. */
     public void resetAll() {
         mPrefs.edit().clear().apply();

@@ -65,8 +65,18 @@ public final class ParentalLimitController implements Application.ActivityLifecy
 
     /** Re-poll every 500 ms while foreground. */
     private static final long TICK_MS = 500;
-    /** Persist every 5 s so a sudden kill doesn't lose much progress. */
-    private static final long PERSIST_EVERY_MS = 5_000;
+    /**
+     * How often the live stretch is committed into the accumulated total.
+     * A process kill therefore loses at most this much progress.
+     */
+    private static final long COMMIT_INTERVAL_MS = 5_000;
+    /**
+     * Sanity bound for a single live stretch (24 h). A stretch longer than
+     * this means the stored start time is stale or corrupt - for example after
+     * the process was killed without the lifecycle callback running - so the
+     * accumulated total is used instead.
+     */
+    private static final long MAX_SANE_STRETCH_MS = TimeUnit.HOURS.toMillis(24);
     /** Warn the user this long before the quota runs out. */
     private static final long WARNING_LEAD_MS = 60_000;
 
@@ -88,7 +98,6 @@ public final class ParentalLimitController implements Application.ActivityLifecy
     private Activity mCurrentActivity;
     private boolean mLockLaunched;
     private boolean mWarningShown;
-    private long mLastPersistElapsed;
     private long mLastSavedUsedMs;
     /**
      * Class of the lock activity to launch when the quota is exhausted. Set
@@ -231,6 +240,7 @@ public final class ParentalLimitController implements Application.ActivityLifecy
         // Also clear the unused counter so the kid gets the full configured window.
         mData.setUsedMs(0);
         mData.setSessionStartElapsed(0);
+        mData.setPlayingStartElapsed(0);
         mLastSavedUsedMs = 0;
         // Same as above: keep counting while the app stays in the foreground.
         restartForegroundSession();
@@ -257,9 +267,14 @@ public final class ParentalLimitController implements Application.ActivityLifecy
      * "Extend current session" parent action.
      */
     public void extendCurrentSession(long extraMs) {
+        // The accumulated total is the committed time; the live stretch is
+        // added on top by computeCurrentUsedMs(). To give the user `extraMs`
+        // more time we lower the committed total and restart the stretch from
+        // now, so the new total is (total - extraMs) + elapsed.
         long newUsed = Math.max(0, computeCurrentUsedMs() - extraMs);
         mData.setUsedMs(newUsed);
         mData.setSessionStartElapsed(SystemClock.elapsedRealtime());
+        mData.setPlayingStartElapsed(SystemClock.elapsedRealtime());
         mLastSavedUsedMs = newUsed;
     }
 
@@ -327,19 +342,18 @@ public final class ParentalLimitController implements Application.ActivityLifecy
         mForegroundCount = Math.max(0, mForegroundCount - 1);
 
         if (mForegroundCount == 0) {
-            if (mData.getCountingMode() == ParentalLimitData.COUNTING_MODE_PLAYBACK) {
-                // Bank the elapsed playback time. The foreground snapshot above
-                // already includes it, but recomputing after the bank keeps the
-                // two paths from drifting apart.
-                syncPlaybackState();
-                long total = computeCurrentUsedMs();
-                mData.setUsedMs(total);
-                mLastSavedUsedMs = total;
-            } else {
+            // Close the live stretch into the accumulated total. The snapshot
+            // above is only a fallback for the (impossible in practice) case
+            // where the commit below did not run.
+            commitAllLiveTime();
+
+            long total = computeCurrentUsedMs();
+            if (total < snapshot) {
+                // Defensive: never lose time.
                 mData.setUsedMs(snapshot);
                 mLastSavedUsedMs = snapshot;
             }
-            mData.setSessionStartElapsed(0);
+
             mHandler.removeCallbacks(mTicker);
             mCurrentActivity = null;
             // Don't clear mLockLaunched here — once we've shown the lock, the kid
@@ -443,16 +457,12 @@ public final class ParentalLimitController implements Application.ActivityLifecy
         // Doing it after computing `used` would bank the same stretch twice.
         syncPlaybackState();
 
-        long used = computeCurrentUsedMs();
+        // Close the live stretch into the accumulated total. This must happen
+        // BEFORE reading the total, otherwise the stretch would be counted
+        // twice (the total would already include it).
+        commitDueStretch();
 
-        // Persist periodically so a sudden kill doesn't lose much progress.
-        long nowElapsed = SystemClock.elapsedRealtime();
-        if (nowElapsed - mLastPersistElapsed >= PERSIST_EVERY_MS
-                || Math.abs(used - mLastSavedUsedMs) > 1_000) {
-            mData.setUsedMs(used);
-            mLastSavedUsedMs = used;
-            mLastPersistElapsed = nowElapsed;
-        }
+        long used = computeCurrentUsedMs();
 
         if (isResting()) {
             // Already in rest; ensure lock is showing.
@@ -511,11 +521,14 @@ public final class ParentalLimitController implements Application.ActivityLifecy
     }
 
     private void beginRestAndLock() {
-        // Persist final usedMs and start the rest deadline.
+        // Close the live stretch first so the accumulated total is exact, then
+        // pin it to the limit and start the rest deadline.
+        commitAllLiveTime();
         mData.setUsedMs(mData.getLimitMs());
         mLastSavedUsedMs = mData.getLimitMs();
         mData.setRestUntilWall(System.currentTimeMillis() + mData.getRestMs());
         mData.setSessionStartElapsed(0);
+        mData.setPlayingStartElapsed(0);
 
         if (mCurrentActivity != null) {
             launchLockIfNeeded(mCurrentActivity);
@@ -538,6 +551,7 @@ public final class ParentalLimitController implements Application.ActivityLifecy
     public void refreshRestState() {
         long restUntil = mData.getRestUntilWall();
         if (restUntil <= 0) {
+            clearStaleQuotaIfNeeded();
             return;
         }
         if (System.currentTimeMillis() < restUntil) {
@@ -554,9 +568,36 @@ public final class ParentalLimitController implements Application.ActivityLifecy
     }
 
     /**
-     * Returns the current cumulative time, summing any previously persisted
-     * {@code usedMs} with the in-progress stretch measured by the monotonic
-     * clock.
+     * Clears a stale exhausted quota.
+     *
+     * <p>SharedPreferences survive an overwrite install, so a build with a
+     * time-accounting bug can leave an accumulated time that is already at (or
+     * beyond) the limit. With correct accounting that state is impossible: the
+     * quota is only ever exhausted together with an active rest period.</p>
+     *
+     * <p>So: quota exhausted AND no rest in effect means the stored state is
+     * stale - drop it and let the user start fresh.</p>
+     */
+    private void clearStaleQuotaIfNeeded() {
+        if (mData.getUsedMs() < mData.getLimitMs()) {
+            return;
+        }
+        mData.setUsedMs(0);
+        mData.setSessionStartElapsed(0);
+        mData.setPlayingStartElapsed(0);
+        mLastSavedUsedMs = 0;
+        restartForegroundSession();
+    }
+
+    /**
+     * Returns the current cumulative time: the accumulated total plus the
+     * live stretch measured by the monotonic clock.
+     *
+     * <p>The accumulated total ({@code usedMs}) only ever holds
+     * <em>completed</em> time - see
+     * {@link ParentalLimitData#commitStretch(long, boolean)}. Adding the live
+     * stretch on top of a total that already included it would double-count
+     * and make the counted time grow quadratically.</p>
      *
      * <p>In {@link ParentalLimitData#COUNTING_MODE_FOREGROUND} the stretch is
      * the whole foreground session. In
@@ -574,15 +615,16 @@ public final class ParentalLimitController implements Application.ActivityLifecy
             return mData.getUsedMs();
         }
         long delta = SystemClock.elapsedRealtime() - start;
-        if (delta < 0) {
-            // Clock anomaly (e.g. process restart reset elapsedRealtime base).
-            // Trust the persisted value rather than going negative.
+        if (delta < 0 || delta > MAX_SANE_STRETCH_MS) {
+            // Clock anomaly (e.g. the process was restarted and the elapsed
+            // realtime base moved) or a corrupted stretch. Trust the
+            // accumulated total rather than producing a bogus value.
             return mData.getUsedMs();
         }
         return mData.getUsedMs() + delta;
     }
 
-    /** Cumulative time plus the currently running playback stretch. */
+    /** Accumulated total plus the currently running playback stretch. */
     private long computePlaybackUsedMs() {
         long base = mData.getUsedMs();
         long playingStart = mData.getPlayingStartElapsed();
@@ -590,15 +632,64 @@ public final class ParentalLimitController implements Application.ActivityLifecy
             return base;
         }
         long delta = SystemClock.elapsedRealtime() - playingStart;
-        if (delta < 0) {
+        if (delta < 0 || delta > MAX_SANE_STRETCH_MS) {
             return base;
         }
         return base + delta;
     }
 
     /**
+     * Closes the live stretch into the accumulated total once it has been
+     * running for {@link #COMMIT_INTERVAL_MS}. Called from the tick so that
+     * an OS-initiated process kill loses at most a few seconds.
+     */
+    private void commitDueStretch() {
+        long now = SystemClock.elapsedRealtime();
+
+        if (mData.getCountingMode() == ParentalLimitData.COUNTING_MODE_PLAYBACK) {
+            long start = mData.getPlayingStartElapsed();
+            if (start > 0 && now - start >= COMMIT_INTERVAL_MS) {
+                mData.commitStretch(now - start, true);
+                mLastSavedUsedMs = mData.getUsedMs();
+            }
+            return;
+        }
+
+        long start = mData.getSessionStartElapsed();
+        if (start > 0 && now - start >= COMMIT_INTERVAL_MS) {
+            mData.commitStretch(now - start, false);
+            mLastSavedUsedMs = mData.getUsedMs();
+        }
+    }
+
+    /** Closes both live stretches (foreground session and playback run). */
+    private void commitAllLiveTime() {
+        long now = SystemClock.elapsedRealtime();
+
+        long start = mData.getSessionStartElapsed();
+        if (start > 0) {
+            long delta = now - start;
+            if (delta > 0) {
+                mData.commitStretch(delta, false);
+            }
+        }
+
+        long playingStart = mData.getPlayingStartElapsed();
+        if (playingStart > 0) {
+            long delta = now - playingStart;
+            if (delta > 0) {
+                mData.commitStretch(delta, true);
+            }
+        }
+
+        mData.setSessionStartElapsed(0);
+        mData.setPlayingStartElapsed(0);
+        mLastSavedUsedMs = mData.getUsedMs();
+    }
+
+    /**
      * Keeps the playback stretch in sync with the engine: starts counting when
-     * a video begins playing, banks the elapsed time when it stops.
+     * a video begins playing, commits the elapsed time when it stops.
      *
      * <p>Only counts while the app is in the foreground - a video left playing
      * in the background (PiP) does not accumulate.</p>
@@ -620,12 +711,8 @@ public final class ParentalLimitController implements Application.ActivityLifecy
 
         if (playingStart > 0) {
             long delta = SystemClock.elapsedRealtime() - playingStart;
-            if (delta > 0) {
-                mData.setUsedMs(mData.getUsedMs() + delta);
-                mLastSavedUsedMs = mData.getUsedMs();
-            }
-            mData.setPlayingStartElapsed(0);
-            mData.setSessionStartElapsed(0);
+            mData.commitStretch(delta, true);
+            mLastSavedUsedMs = mData.getUsedMs();
         }
     }
 
